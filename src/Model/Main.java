@@ -283,6 +283,133 @@ public class Main {
         }
     }
 
+    // CREATE ANOTHER ACCOUNT FOR AN EXISTING CUSTOMER
+
+    public static void createAnotherAccount(
+            Connection connection,
+            Scanner input,
+            int customerID,
+            Map<Integer, Account> accounts,
+            Map<Integer, String> accountTypes) throws SQLException {
+
+        boolean hasSavings = accountTypes.containsValue("Savings");
+        boolean hasWallet = accountTypes.containsValue("Wallet");
+
+        if (hasSavings && hasWallet) {
+            System.out.println(
+                    "You already have both a Savings Account and a Wallet Account."
+            );
+            return;
+        }
+
+        System.out.println("\n===== CREATE ANOTHER ACCOUNT =====");
+
+        if (!hasSavings) {
+            System.out.println("1. Savings Account");
+        }
+
+        if (!hasWallet) {
+            System.out.println("2. Wallet Account");
+        }
+
+        System.out.println("0. Go Back");
+        System.out.print("Choose an account type: ");
+
+        int choice = readInt(input);
+
+        if (choice == 0) {
+            return;
+        }
+
+        String accountType;
+
+        if (choice == 1 && !hasSavings) {
+            accountType = "Savings";
+        } else if (choice == 2 && !hasWallet) {
+            accountType = "Wallet";
+        } else {
+            System.out.println(
+                    "Invalid choice or you already have that account type."
+            );
+            return;
+        }
+
+        System.out.print("Enter initial deposit (minimum 10000 FRW): ");
+        double balance = readDouble(input);
+
+        if (balance < 10000) {
+            System.out.println(
+                    "Initial deposit must be at least 10000 FRW."
+            );
+            return;
+        }
+
+        String referenceID = generateReferenceID();
+        boolean previousAutoCommit = connection.getAutoCommit();
+
+        AccountDAO accountDAO = new AccountDAO();
+        TransactionDAO transactionDAO = new TransactionDAO();
+        ProcessedRequestDAO processedRequestDAO =
+                new ProcessedRequestDAO();
+
+        try {
+            connection.setAutoCommit(false);
+
+            if (!processedRequestDAO.registerRequest(
+                    connection, referenceID)) {
+                connection.rollback();
+                System.out.println("This request has already been processed.");
+                return;
+            }
+
+            int accountID = accountDAO.createAccount(
+                    connection, customerID, accountType, balance
+            );
+
+            transactionDAO.saveTransaction(
+                    connection, accountID, balance,
+                    "Deposit", referenceID
+            );
+
+            connection.commit();
+
+            Account newAccount;
+
+            if (accountType.equals("Savings")) {
+                newAccount = new SavingsAccount(accountID, balance);
+            } else {
+                newAccount = new WalletAccount(accountID, balance);
+            }
+
+            accounts.put(accountID, newAccount);
+            accountTypes.put(accountID, accountType);
+
+            System.out.println("\nAccount created successfully!");
+            System.out.println("Account ID: " + accountID);
+            System.out.println("Account Type: " + accountType);
+            System.out.println("Initial Balance: " + balance + " FRW");
+            System.out.println("Deposit Reference: " + referenceID);
+
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackError) {
+                e.addSuppressed(rollbackError);
+            }
+            throw e;
+
+        } finally {
+            try {
+                connection.setAutoCommit(previousAutoCommit);
+            } catch (SQLException e) {
+                System.out.println(
+                        "Warning: Could not restore transaction settings: "
+                                + e.getMessage()
+                );
+            }
+        }
+    }
+
     // VALIDATE CUSTOMER PIN
 
     public static boolean validateCustomerPIN(
@@ -389,7 +516,8 @@ public class Main {
             System.out.println("8. Close Inactive Account");
             System.out.println("9. Update Customer Details");
             System.out.println("10. Transaction Reports");
-            System.out.println("11. Log Out");
+            System.out.println("11. Create Another Account");
+            System.out.println("12. Log Out");
             System.out.print("Choose an option: ");
 
             int option = readInt(input);
@@ -846,9 +974,18 @@ public class Main {
                     );
                     break;
 
-                // LOG OUT — LAST OPTION
+                // CREATE ANOTHER ACCOUNT
 
                 case 11:
+                    createAnotherAccount(
+                            connection, input, customerID,
+                            accounts, accountTypes
+                    );
+                    break;
+
+                // LOG OUT
+
+                case 12:
                     running = false;
                     System.out.println("You have logged out.");
                     break;
@@ -857,9 +994,9 @@ public class Main {
                     System.out.println("Invalid option.");
             }
 
-            // NAVIGATION AFTER BANKING OPERATIONS 1–9 ONLY
+            // NAVIGATION AFTER BANKING OPERATIONS
 
-            if (option >= 1 && option <= 9) {
+            if ((option >= 1 && option <= 9) || option == 11) {
                 boolean returnToMenu = showPostOperationMenu(input);
 
                 if (!returnToMenu) {
