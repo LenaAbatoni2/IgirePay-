@@ -1,5 +1,5 @@
 
-        package Model;
+package Model;
 
 import DAO.AccountDAO;
 import DAO.CustomerDAO;
@@ -952,6 +952,8 @@ public class Main {
                             );
                         }
 
+                        // RESTORED: DISPLAY THE TOTAL NUMBER OF TRANSACTIONS
+
                         System.out.println(
                                 "\nTotal transactions: " + history.size()
                         );
@@ -1309,6 +1311,26 @@ public class Main {
             System.out.println(
                     "The maximum loan for your current balance is "
                             + maximumLoan + " FRW."
+            );
+            return;
+        }
+
+        // CONFIRM THE LOAN REQUEST BEFORE PROCESSING IT
+
+        System.out.println("\n===== CONFIRM LOAN REQUEST =====");
+        System.out.println("Loan amount: " + loanAmount + " FRW");
+        System.out.println(
+                "Account: " + accountTypes.get(accountID) + " Account"
+        );
+        System.out.println("1. Confirm loan request");
+        System.out.println("2. Cancel loan request");
+        System.out.print("Choose an option: ");
+
+        int confirmation = readInt(input);
+
+        if (confirmation != 1) {
+            System.out.println(
+                    "Loan request cancelled. No changes were made."
             );
             return;
         }
