@@ -1,5 +1,5 @@
 
-package Model;
+        package Model;
 
 import DAO.AccountDAO;
 import DAO.CustomerDAO;
@@ -951,6 +951,10 @@ public class Main {
                                     "Date: " + transaction.getTimestamp()
                             );
                         }
+
+                        System.out.println(
+                                "\nTotal transactions: " + history.size()
+                        );
                     }
                     break;
                 }
